@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Session Working Directory Isolation",
+    "description": "Gives every newly created session in a configured workspace its own working directory under _sessions/<session-id>, so new sessions no longer share the workspace root."
+  }
+}

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="title">
+  <title id="title">Session working directory isolation</title>
+  <!-- Original artwork: one workspace tray split into per-session compartments. -->
+  <rect width="64" height="64" rx="14" fill="#0f1c2a"/>
+  <path d="M10 22a4 4 0 0 1 4-4h10.8l3.6 4.5H50a4 4 0 0 1 4 4V31H10z" fill="#2c6a8a"/>
+  <rect x="10" y="29" width="44" height="22" rx="4" fill="#173447" stroke="#63c1dc" stroke-width="2"/>
+  <path d="M28.5 31.5v17M43 31.5v17" stroke="#63c1dc" stroke-width="1.8" stroke-linecap="round" opacity="0.9"/>
+  <rect x="15" y="35" width="9.5" height="8" rx="2" fill="#63c1dc"/>
+  <rect x="31.5" y="35" width="8" height="8" rx="2" fill="#2c6a8a"/>
+  <rect x="46.5" y="35" width="5" height="8" rx="2" fill="#2c6a8a"/>
+  <circle cx="52" cy="20" r="3" fill="#63c1dc"/>
+</svg>

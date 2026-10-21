@@ -1,0 +1,46 @@
+{
+  "name": "@local/dsh-session-isolation",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Host + browser bundle: give every new session in a configured workspace its own working directory, plus a header button that opens that directory and a client-side repair for file addresses that DSH builds with a stale workspace root.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wangwuli-AAA/dsh-session-isolation.git"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-bundle",
+    "session",
+    "workspace",
+    "isolation"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

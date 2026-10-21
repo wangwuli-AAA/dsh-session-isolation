@@ -1,0 +1,13 @@
+# Inserts the session-isolation Host plugin.
+# `workspaces` lists the workspace roots whose NEW sessions get their own
+# working directory at <workspace>/<baseDir>/<session-id>.
+# Replace the example below with the absolute path of your own workspace root.
+# On Windows write doubled backslashes, e.g. "C:\\Users\\you\\dsh-workspace".
+- insert:
+    - id: session-isolation
+      name: '@local/dsh-session-isolation'
+      config:
+        workspaces:
+          - "/path/to/your-workspace"
+        baseDir: "_sessions"
+        isolateSubagents: true
