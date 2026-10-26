@@ -1,106 +1,215 @@
-# @local/dsh-session-isolation
+# dsh-session-isolation
 
-Host + 浏览器半侧的 bundle。为指定工作区里**新建**的会话分配独立工作目录：
+[中文说明](README.zh-CN.md)
 
+Give every **new session** in a chosen DeepSeek Harness workspace its own working
+directory — without turning each session into a separate workspace.
+
+`@local/dsh-session-isolation` is a local DSH bundle with two halves:
+
+- **Host** — listens to `agent/created`; when a session starts (`startup`) or gets
+  a fresh conversation (`clear`) inside one of the configured workspaces, it
+  creates `<workspace>\<baseDir>\<session-id>` and switches the session's
+  `working-directory` projection to that directory.
+- **Browser** — adds a folder button to the conversation header (next to DSH's
+  built-in "Open in…" split button) that opens the session directory in the OS
+  file manager, and repairs file addresses that DSH builds against the stale
+  workspace root (v1.2.0).
+
+Session ownership never changes: `SessionHeader.cwd` stays the workspace root, so
+the sidebar keeps grouping the session under its original workspace.
+
+```text
+default-workspace\
+├─ _sessions\                    ← one folder per new session
+│  ├─ session-8c0bdfb7-…\
+│  │  └─ poem.md
+│  └─ session-f7f8c56c-…\
+└─ …                             ← existing workspace files, untouched
 ```
-<workspace>\<baseDir>\<session-id>
-```
 
-默认 `baseDir` 为 `_sessions`，所以默认工作区里的新会话工作目录是
-`<默认工作区>\_sessions\<session-id>`。会话仍归属原工作区（`SessionHeader.cwd`
-不变，侧栏分组不变），只是 `working-directory` 投影被切换到该目录。
+## Features
 
-会话窗口右上角的工具区还会出现一个**文件夹按钮**（在「在应用中打开」旁），
-点击即可在系统文件管理器里打开当前会话的独立目录；没有独立目录的会话
-（旧会话、其他工作区）不显示该按钮。
+- **Per-session working directory** — agents start in `_sessions\<session-id>`
+  and only write there unless they explicitly go elsewhere.
+- **No workspace surgery** — no new workspace entries, no `SessionHeader` rewrite,
+  no changes to DSH's profile or workspace registry.
+- **New sessions only** — `startup` and `clear` are isolated; `resume` and
+  `compact` keep whatever the projection already replays.
+- **Subagents included by default** — every subagent session gets its own folder
+  (can be turned off).
+- **Never blocks a session** — any isolation failure is logged as a warning and
+  the session silently keeps the workspace root.
+- **Header button only where it makes sense** — it queries a read-only Host route
+  instead of guessing a path, and stays hidden for sessions that are not isolated.
+- **Client-side address repair (v1.2.0)** — file links and file cards in chat open
+  correctly in the document preview even though the working directory is no
+  longer the workspace root.
 
-## 安装
+## Screenshots
 
-本包是 DeepSeek Harness 的**本地 bundle**（不在 npm 上发布）：DSH 的插件管理器把
-本目录链接进当前 profile，由 bundle 自带的 `cordis.patch.yml` 插入 Host 行。
+The folder button added by the bundle, right of DSH's built-in "Open in…" split
+button:
 
-1. 把本仓库放到一个固定目录，例如 `D:\dsh-session-isolation`。
-2. 编辑 [cordis.patch.yml](cordis.patch.yml)，把 `workspaces` 里的示例路径换成你的
-   工作区根（绝对路径；Windows 路径在 YAML 里写双反斜杠）。
-3. 用插件管理器安装本地 bundle，然后重启 DSH 桌面版：
+![Folder button in the conversation header](docs/session-folder-button.png)
 
-```
-plugin_manager install_bundle target=<本仓库目录>
-```
+The files panel browsing the same workspace — every session folder lives under
+`_sessions`:
 
-桌面版「插件」页面也支持从本地目录安装。要求 DSH 已启用
-`@deepseek-ai/dsh-working-directory` 与浏览器模块系统（桌面版 / web 默认启用）。
+![Files panel with _sessions expanded](docs/files-panel-sessions.png)
 
-## 配置
+![Session folders](docs/session-folders.png)
 
-`cordis.patch.yml` 里插入的 `session-isolation` 行：
+## Requirements
 
-| 字段 | 类型 | 默认值 | 说明 |
+- DSH Desktop **0.2.1-rc.2 or later** (tested on 0.2.1-rc.2 and 0.2.1-rc.3).
+- The profile enables `@deepseek-ai/dsh-working-directory` and the browser module
+  system — both are on by default in the desktop build.
+- Windows was the primary target; the Host half uses only `node:` built-ins and
+  `path` semantics, so other platforms work as long as the configured workspace
+  paths are absolute.
+
+## Install
+
+The package is **not published to npm**. DSH links a local bundle into the current
+profile and mounts the Host row declared by the bundle's own `cordis.patch.yml`.
+
+1. Clone this repository into a stable directory, for example
+   `D:\dsh-session-isolation`.
+2. Edit [`cordis.patch.yml`](cordis.patch.yml): replace the example
+   `workspaces` entry with your own workspace root (absolute path; write doubled
+   backslashes in YAML on Windows).
+3. Install the folder as a bundle and restart DSH Desktop:
+   - DSH Desktop → **Plugins** → install a bundle from a folder → select this
+     directory; or
+   - from a DSH session that exposes the plugin manager:
+     `plugin_manager install_bundle target=<repo path>`
+
+A local install is a **link**: DSH uses the folder in place, so keep it where it
+is (moving or deleting it disables the plugin).
+
+## Configuration
+
+The inserted `session-isolation` row in `cordis.patch.yml`:
+
+| Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `workspaces` | `string[]` | 必填 | 绝对路径；只有 `header.cwd` 与其中一项相等的会话才会被隔离 |
-| `baseDir` | `string` | `_sessions` | 相对路径时相对每个 workspace，绝对路径时直接使用 |
-| `isolateSubagents` | `boolean` | `true` | 为子代理会话也创建独立目录 |
+| `workspaces` | `string[]` | required | Absolute workspace roots. Only sessions whose `header.cwd` equals one of them are isolated. |
+| `baseDir` | `string` | `_sessions` | Directory name under each workspace. Relative paths are resolved per workspace; absolute paths are used as-is. |
+| `isolateSubagents` | `boolean` | `true` | Also give subagent sessions their own directory. |
 
-配置非法时插件在激活阶段直接抛错（行显示失败），不会静默失效。
+Invalid configuration makes the plugin fail at activation (the row shows as
+failed) instead of silently doing nothing.
 
-## 浏览器按钮的工作方式
+## How it works
 
-按钮不猜路径，而是向本插件的 Host 路由查询：
+### Host side
 
-```
+`agent/created` is a serial event: DSH awaits every listener before the session
+creation transaction resolves, and a listener that throws aborts creation. The
+bundle therefore treats isolation as best-effort — the whole routine is wrapped in
+`try/catch`, failures only produce a `warn` log line, and the session keeps the
+workspace root.
+
+It only acts when `source` is `startup` or `clear`, and only for sessions whose
+`header.cwd` matches a configured workspace. It never overrides a directory that
+another mechanism already set (`startup` skips when the current directory is
+neither the workspace root nor the service default).
+
+### Header button
+
+The button never guesses: it asks the Host, then reuses DSH's own file-manager
+routes.
+
+```text
 GET /session-isolation/session-directory?sessionId=<id>
-  -> 200 {"sessionId": "...", "directory": "..."}   已隔离且目录存在
-  -> 404                                              未隔离 / 目录已删
+  -> 200 {"sessionId": "...", "directory": "<workspace>\\_sessions\\<id>"}   isolated
+  -> 404                                                                     not isolated / deleted
 ```
 
-路由和状态栏目使用同一套信任栅栏（Host/Origin 检查 + 浏览器鉴权），并且只报告
-本插件为配置工作区会话创建的目录。拿到路径后，按钮复用 desktop profile 自带的
-`GET /open-in-app/apps` 与 `POST /open-in-app/open` 打开文件管理器；Windows 下
-等价于用资源管理器打开该目录。
+The route shares the web server's trust fence (`connection.requestRejection`,
+i.e. DSH's Host/Origin check plus browser auth), answers `405` for non-`GET` and
+`400` without a session id. Once a path is returned, the browser half calls the
+profile's own `GET /open-in-app/apps` and `POST /open-in-app/open`; on Windows
+that is File Explorer.
 
-## 文件地址纠错（v1.2.0）
+### File-address repair (v1.2.0)
 
-DSH 的浏览器端在建文件地址时假设「会话工作目录 == 工作区根」。隔离会话里工作目录是
-`_sessions\<id>`，于是聊天里的文件链接/文件卡可能生成两类坏地址：
+DSH's browser code assumes *session working directory == workspace root*. With an
+isolated session that assumption can produce two kinds of broken file addresses:
 
-- 缺分隔符：`.../default-workspace_sessions/session-<id>/a.md`（工作区根与 `baseDir` 粘在一起）；
-- 按工作目录取相对路径：`a.md`，Host 却按工作区根解析成 `<workspace>\a.md`。
+- **missing separator** — `.../default-workspace_sessions/session-<id>/a.md`
+  (workspace root glued to `baseDir`);
+- **working-directory-relative** — `a.md`, which the Host then resolves against
+  the workspace root and misses.
 
-本插件的浏览器半侧会包一层 `sidebarRight.openResource`，在打开前修正这两类地址：
-已知工作区根 + `baseDir` 粘连时补 `/`；相对路径且 Host 路由确认会话已被隔离时，
-补成 `<baseDir>/<session-id>/<路径>`。修正只发生在「配置工作区 + 已隔离」的会话里，
-其他地址原样放行；包装幂等，出错只写 warn，不影响打开动作。
+The browser half wraps `sidebarRight.openResource` and fixes both before opening:
+it inserts the missing `/` when a known workspace root is glued to `baseDir`, and
+prefixes relative paths with `<baseDir>/<session-id>/` once the Host confirms the
+session is isolated. Repair only applies to configured-workspace, isolated
+sessions; every other address passes through untouched. The wrapper is idempotent,
+routes to the original method, and never throws.
 
-注意：修复只作用于重启后新打开的文件。之前已经持久化的坏 tab 地址不会自动改写，
-重新点一次文件即可。此功能需要重启 DSH 桌面版（浏览器半侧是构建产物）。
+Only newly opened files are repaired — tab addresses persisted by an older build
+are not rewritten, so click the file once after upgrading.
 
-## 行为边界
+Changing `index.js` or `client.js` requires restarting DSH Desktop: the browser
+half is served from `exports["./client"]` by the client module system and is
+composed at boot.
 
-- 只在 `agent/created` 且 `source` 为 `startup`（新会话）或 `clear`（同一会话重开新对话）时切换目录；`resume` / `compact` 不动，已有投影按回放恢复。
-- 不覆盖别的机制已经设置过的目录：`startup` 时若当前目录既不是工作区根、也不是服务默认目录，则跳过。
-- 隔离过程任何异常都只写 warn 日志，绝不回滚会话创建。
-- 不做启动扫描，不迁移旧会话：安装前已存在的会话保持原地。
-- 删除会话可能留下空的 `_sessions\<id>` 目录，不自动清理。
-- Headless 组合里没有 `webServer` 等宿主服务时，隔离照常工作，只是没有按钮。
+## Verification
 
-## 验证
+1. A new session's log (`session.v4.jsonl.zstd`) contains a
+   `working-directory/change` event pointing at `_sessions\<session-id>`.
+2. The system prompt shows `Current working directory: <workspace>\_sessions\<id>`.
+3. Sessions in other workspaces never get an `_sessions` directory.
+4. Resuming an old session adds no `working-directory/change` event.
+5. The header folder button appears and opens the session folder in the file
+   manager.
+6. Clicking a file link/card inside an isolated session opens the document
+   preview (v1.2.0 fix).
 
-1. 新会话日志 `session.v4.jsonl.zstd` 中出现 `working-directory/change` 事件，`cwd` 指向 `_sessions\<session-id>`。
-2. 系统提示中的 `Current working directory` 是该目录。
-3. 非配置工作区（例如 `D:\work\another-workspace`）的新会话不产生 `_sessions` 目录。
-4. 恢复默认工作区的旧会话不追加变更事件。
-5. 会话头部出现文件夹按钮，点击后文件管理器打开 `_sessions\<session-id>`。
-6. 已隔离会话里点聊天中的文件链接/文件卡，右侧预览正常打开（v1.2.0 起自动纠正坏地址）。
+## Compatibility
 
-## 停用 / 卸载
+Tested with DSH **0.2.1-rc.2** and **0.2.1-rc.3** on Windows 11. The bundle only
+uses public, stable contracts and patches no DSH internals:
 
-插件管理器中禁用 `session-isolation` 行即可停止对新会话生效；`remove_bundle`
-移除整个 bundle。历史会话与 `_sessions` 目录都不受影响（目录可手工删除）。
+- Host: `agent/created` (serial, awaited listener), the `workingDirectory`
+  service, `webServer.register` + `connection.requestRejection`, `sessions.get`.
+- Browser: `dsh.client` packaging (`exports["./client"]` →
+  `/plugins/<name>/client.js`), the `conversation.session.header.utilities` slot,
+  the `slots` / `locale` / `sessions` services, and DSH's `/open-in-app` routes.
 
-本包只 import `node:` 内置模块，无运行时依赖。修改 Host 侧（`index.js`）或
-浏览器侧（`client.js`）后都需要重启 DSH 桌面版；浏览器侧是普通脚本
-（`dsh.client` 声明），由模块系统按 `exports["./client"]` 提供。
+Behaviour of the host and client contracts above was re-checked against
+0.2.1-rc.3 (working directory service, `agent/created` signature, slot
+registration, file-address grammar, `/open-in-app` body validation) — no code
+changes were required. Runtime dependencies: none (Node built-ins only).
+
+## Notes
+
+- The plugin never changes sandbox, approval or permission settings. On Windows,
+  DSH's own sandboxed shell can have environment-specific issues in some builds
+  (e.g. console child processes under `workspace-write`, or a bundled PowerShell
+  without its `Modules` directory); those are unrelated to this bundle.
+- Deleting a session may leave an empty `_sessions\<id>` folder behind; nothing
+  cleans it up automatically.
+- A `_sessions` folder can be deleted at any time — the session falls back to the
+  workspace root.
+
+## Uninstall
+
+Disable the `session-isolation` row in the plugin manager to stop isolating new
+sessions, or remove the whole bundle. Existing sessions and their `_sessions`
+folders are unaffected and can be deleted by hand.
+
+## Development
+
+- `index.js` — Host half (isolation + read-only directory route).
+- `client.js` — browser half (header button + address repair), served via
+  `exports["./client"]`.
+- `cordis.patch.yml` — the Host row inserted by the bundle.
+- `locale/`, `icon.svg` — plugin-manager display metadata.
 
 ## License
 
-MIT，见 [LICENSE](LICENSE)。
+MIT — see [LICENSE](LICENSE).

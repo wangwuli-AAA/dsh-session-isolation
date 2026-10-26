@@ -1,0 +1,29 @@
+# Changelog
+
+## v1.2.0 — 2026-10-21
+
+- **Browser half: file-address repair.** DSH's browser code assumes the session
+  working directory equals the workspace root. For isolated sessions it can build
+  a missing-separator address (`.../default-workspace_sessions/<id>/a.md`) or a
+  working-directory-relative path (`a.md`, resolved against the workspace root by
+  the Host). The bundle now wraps `sidebarRight.openResource` and repairs both
+  shapes before opening, so the document preview works for files inside
+  `_sessions\<session-id>`.
+- **Browser half: "open session folder" button** in the conversation header next
+  to DSH's built-in "Open in…" button. It queries the Host for the real session
+  directory and reuses DSH's `/open-in-app` routes to open it in the OS file
+  manager.
+- **Host half: `GET /session-isolation/session-directory`** — a read-only route
+  behind the web server's trust fence that reports the isolated directory of a
+  session (404 for non-isolated sessions and deleted directories).
+- Verified against DSH 0.2.1-rc.2 and 0.2.1-rc.3; no contract changes were needed.
+
+## v1.1.0 — 2026-10-21
+
+- Browser half added (first UI surface for the bundle): `dsh.client` declaration,
+  `exports["./client"]`, header slot registration.
+
+## v1.0.0 — 2026-10-21
+
+- Initial release: Host-only bundle that gives every new session in a configured
+  workspace its own working directory at `<workspace>\<baseDir>\<session-id>`.
