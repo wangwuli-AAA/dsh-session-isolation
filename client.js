@@ -10,8 +10,10 @@
  *   GET  /open-in-app/apps                                   (built-in)
  *   POST /open-in-app/open                                   (built-in)
  *
- * The button only renders for sessions the Host reports as isolated, so old
- * sessions and sessions from other workspaces keep a clean header.
+ * The button only renders for sessions the Host reports as isolated, so
+ * sessions from unconfigured workspaces keep a clean header. The header can
+ * mount before the Host finishes isolating a resumed session, so a negative
+ * lookup is not cached and the button asks again for a few seconds.
  *
  * It also repairs file addresses before they reach the sidebar-right service.
  * The rest of the desktop client assumes the Session working directory is the
@@ -41,6 +43,11 @@ window.__ModuleLoader__.load({
     const FILE_ADDRESS_PREFIX = 'dsh-resource://file/'
     const SESSION_SCOPE = 'session'
     const DEFAULT_BASE_DIR = '_sessions'
+
+    /** How long the header keeps asking for the directory after a miss. */
+    const ISOLATION_LOOKUP_RETRY_MS = 500
+    /** 12 × 500 ms: covers the Host isolating resumed sessions while the window boots. */
+    const ISOLATION_LOOKUP_RETRIES = 12
 
     const DICTS = {
       zh: {
@@ -195,6 +202,9 @@ window.__ModuleLoader__.load({
       })().then((value) => {
         entry.settled = true
         entry.value = value
+        // A resumed session can still be waiting for its isolated directory.
+        // Never cache a miss: the next lookup must be able to succeed.
+        if (value === null) isolationCache.delete(sessionId)
         return value
       })
       isolationCache.set(sessionId, entry)
@@ -357,6 +367,7 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         let alive = true
+        let timer
         if (typeof sessionId !== 'string' || sessionId.length === 0) {
           setPhase('absent')
           return undefined
@@ -366,21 +377,32 @@ window.__ModuleLoader__.load({
         installAddressRepair(activeCtx)
         setPhase('loading')
         setDirectory(null)
-        isolationState(sessionId).promise
-          .then((value) => {
-            if (!alive) return
-            if (typeof value === 'string') {
-              setDirectory(value)
-              setPhase('ready')
-            } else {
-              setPhase('absent')
-            }
-          })
-          .catch(() => {
-            if (alive) setPhase('absent')
-          })
+        // A resumed session is isolated while the window boots. The header can
+        // render before that finishes, so a miss is retried instead of hiding
+        // the button forever.
+        const probe = (attempt) => {
+          isolationState(sessionId).promise
+            .then((value) => {
+              if (!alive) return
+              if (typeof value === 'string') {
+                setDirectory(value)
+                setPhase('ready')
+                return
+              }
+              if (attempt >= ISOLATION_LOOKUP_RETRIES) {
+                setPhase('absent')
+                return
+              }
+              timer = setTimeout(() => probe(attempt + 1), ISOLATION_LOOKUP_RETRY_MS)
+            })
+            .catch(() => {
+              if (alive) setPhase('absent')
+            })
+        }
+        probe(0)
         return () => {
           alive = false
+          if (timer !== undefined) clearTimeout(timer)
         }
         // `cwd` is listed so a working-directory change re-asks the Host.
       }, [sessionId, cwd])

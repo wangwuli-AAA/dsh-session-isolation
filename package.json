@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-session-isolation",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": true,
   "description": "Host + browser bundle: give every session in a configured workspace its own working directory — new sessions at `startup`, existing ones the first time they are resumed at the workspace root — plus a header button that opens that directory and a client-side repair for file addresses that DSH builds with a stale workspace root.",
   "license": "MIT",

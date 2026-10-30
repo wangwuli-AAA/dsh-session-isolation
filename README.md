@@ -201,7 +201,10 @@ registered and active), file-address grammar and `/open-in-app` body validation
 are unchanged — no code changes were required. v1.2.2 (2026-10-30) additionally
 isolates **resumed** sessions that are still at the workspace root, so existing
 sessions get a folder the first time they are opened after installing the bundle;
-this was verified on 0.2.1-rc.5. Runtime dependencies: none (Node built-ins only).
+this was verified on 0.2.1-rc.5. v1.2.3 (2026-10-30) makes the header button
+retry the directory lookup for a few seconds after a miss (and never cache a
+miss), so a session restored while the window boots still gets its button.
+Runtime dependencies: none (Node built-ins only).
 
 ## Notes
 

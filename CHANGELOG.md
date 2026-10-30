@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.2.3 — 2026-10-30
+
+- **The header button survives the startup race.** When DSH restores a window it
+  resumes sessions while the browser boots; the header can render before the
+  Host has finished isolating a resumed session, so the first directory lookup
+  can miss. The client no longer caches a miss and retries the lookup for about
+  six seconds, so existing sessions get their folder button without a reload.
+- No Host change; verified on DSH **0.2.1-rc.5**.
+
 ## v1.2.2 — 2026-10-30
 
 - **Resumed sessions are isolated too.** A session that is still at its workspace
