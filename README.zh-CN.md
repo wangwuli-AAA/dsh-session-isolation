@@ -2,13 +2,13 @@
 
 [English](README.md)
 
-为 DeepSeek Harness 指定工作区里**新建的会话**分配独立工作目录，而不必把每个会话
-变成一个独立工作区。
+为 DeepSeek Harness 指定工作区里的每个会话分配独立工作目录：新会话直接进入自己的
+目录，已有会话在首次打开时也会分配，而不必把每个会话变成一个独立工作区。
 
 `@local/dsh-session-isolation` 是一个本地 DSH bundle，分 Host 与浏览器两半：
 
-- **Host**：监听 `agent/created`；当会话在配置的工作区里启动（`startup`）或重开
-  新对话（`clear`）时，创建 `<workspace>\<baseDir>\<session-id>`，并把该会话的
+- **Host**：监听 `agent/created`；当会话在配置的工作区里启动（`startup`）、重开
+  新对话（`clear`），或首次恢复一个仍在工作区根的已有会话时，创建 `<workspace>\<baseDir>\<session-id>`，并把该会话的
   `working-directory` 投影切到该目录。
 - **浏览器**：在会话头部（DSH 内置的「在应用中打开」分体按钮旁）加一个文件夹按钮，
   点击用系统文件管理器打开当前会话目录；v1.2.0 起还会修正 DSH 按旧工作区根生成的
@@ -31,8 +31,8 @@ default-workspace\
   工作区根。
 - **不动工作区结构**：不新增工作区、不改 `SessionHeader`、不写 profile 或
   workspace 注册表。
-- **只影响新会话**：`startup` 与 `clear` 会被隔离；`resume` / `compact` 保持投影
-  回放出来的目录。
+- **已有会话也覆盖**：仍在工作区根的会话在首次进入时分配目录（新会话、清空后的会话、
+  安装插件后首次恢复的旧会话）；已有自己工作目录（含 `_sessions` 目录）的会话不会被移动。
 - **子代理默认同样隔离**：每个子代理会话也有自己的目录（可关闭）。
 - **绝不阻断会话**：隔离过程任何异常只写 warn 日志，会话继续使用工作区根。
 - **按钮只出现在该出现的会话**：按钮不猜路径，而是向 Host 只读路由查询；未隔离的
@@ -100,9 +100,9 @@ bundle 新增的文件夹按钮（位于 DSH 内置「在应用中打开」分�
 创建。因此隔离是「尽力而为」——整个过程包在 `try/catch` 里，失败只写一行 warn，会话
 继续使用工作区根。
 
-只在 `source` 为 `startup` 或 `clear`、且 `header.cwd` 命中配置工作区时动作；不覆盖
-其他机制已经设置过的目录（`startup` 时当前目录既不是工作区根、也不是服务默认目录就
-跳过）。
+只要 `header.cwd` 命中配置工作区、且会话仍在工作区根就动作（`startup` / `clear` /
+`resume` / `compact` 都可能触发）；已经回放出自己工作目录的会话（`_sessions` 目录或
+用户移动后的目录）不会被改动，因此每个会话只隔离一次。
 
 ### 头部按钮
 
@@ -138,11 +138,12 @@ DSH 浏览器端假设「会话工作目录 == 工作区根」。隔离会话里
 
 ## 验证
 
-1. 新会话日志 `session.v4.jsonl.zstd` 出现 `working-directory/change`，`cwd` 指向
+1. 会话日志 `session.v4.jsonl.zstd` 出现 `working-directory/change`，`cwd` 指向
    `_sessions\<session-id>`。
 2. 系统提示里 `Current working directory` 是该目录。
 3. 其他工作区的新会话不产生 `_sessions` 目录。
-4. 恢复旧会话不追加 `working-directory/change` 事件。
+4. 恢复已有自己目录的会话不追加 `working-directory/change` 事件；恢复仍在工作区根的
+   会话会追加一条并得到目录。
 5. 会话头部出现文件夹按钮，点击后文件管理器打开该会话目录。
 6. 隔离会话里点聊天中的文件链接/文件卡，右侧预览正常打开（v1.2.0 起）。
 
@@ -160,8 +161,9 @@ DSH 浏览器端假设「会话工作目录 == 工作区根」。隔离会话里
 上述 host/client 契约已对照 0.2.1-rc.3 复核，并于 2026-10-30 再次对照 0.2.1-rc.5
 复核（working directory 服务、`agent/created` 签名、`webServer.register` +
 `connection.requestRejection`、槽注册——bundle 的头部按钮已注册且处于 active、文件地址
-语法、`/open-in-app` 请求体校验均无变化）——无需改代码。运行时无第三方依赖，只用
-`node:` 内置模块。
+语法、`/open-in-app` 请求体校验均无变化）——无需改代码。v1.2.2（2026-10-30）起，
+对仍在工作区根的 **resume** 会话也执行隔离，已有会话在安装后首次打开时即可获得目录；
+已在 0.2.1-rc.5 上验证。运行时无第三方依赖，只用 `node:` 内置模块。
 
 ## 说明
 
@@ -169,11 +171,11 @@ DSH 浏览器端假设「会话工作目录 == 工作区根」。隔离会话里
   环境相关问题（如 `workspace-write` 下控制台子进程启动失败、内置 PowerShell 缺少
   `Modules` 目录），与本品无关。
 - 删除会话可能留下空的 `_sessions\<id>`，不会自动清理。
-- `_sessions` 目录可随时删除，会话回退到工作区根。
+- `_sessions` 目录可随时删除，会话回退到工作区根；下次进入时会自动重建。
 
 ## 停用 / 卸载
 
-插件管理器中禁用 `session-isolation` 行即可停止对新会话生效；移除整个 bundle 亦可。
+插件管理器中禁用 `session-isolation` 行即可停止隔离生效；移除整个 bundle 亦可。
 历史会话与其 `_sessions` 目录不受影响（目录可手工删除）。
 
 ## 开发

@@ -1,10 +1,12 @@
 /**
  * Session isolation — Host-only bundle plugin.
  *
- * Every session created in one of the configured workspaces is switched to its
- * own working directory at `<workspace>/<baseDir>/<session-id>`, while the
- * session keeps belonging to the workspace itself: `SessionHeader.cwd` is not
- * touched, only the `working-directory` Session projection is changed.
+ * Every session that enters one of the configured workspaces while it is still
+ * at that workspace's root — a brand-new session, a cleared one, or an existing
+ * session resumed for the first time — is switched to its own working directory
+ * at `<workspace>/<baseDir>/<session-id>`, while the session keeps belonging to
+ * the workspace itself: `SessionHeader.cwd` is not touched, only the
+ * `working-directory` Session projection is changed.
  *
  * The plugin also answers one read-only HTTP route, so the browser half can ask
  * where the isolated directory of a session is:
@@ -96,9 +98,9 @@ function samePath(left, right) {
 export function apply(ctx, config) {
   const options = normalizeConfig(config)
 
-  ctx.on('agent/created', async ({ agent, source }) => {
+  ctx.on('agent/created', async ({ agent }) => {
     try {
-      await isolate(ctx, options, agent, source)
+      await isolate(ctx, options, agent)
     } catch (error) {
       // A throw or rejection here fails and rolls back the whole session
       // creation, so isolation problems only ever warn.
@@ -124,16 +126,20 @@ export function apply(ctx, config) {
 
 /**
  * Switch one Session's working directory to its isolation directory.
+ *
+ * Isolation applies whenever an agent is entered for a session that is still
+ * sitting at the root of a configured workspace: a brand-new session
+ * (`startup`), a cleared one (`clear`), and an existing session resumed for the
+ * first time after this bundle was installed. Sessions that already have their
+ * own working directory — an isolation directory, or a directory the user moved
+ * to — are left alone.
+ *
  * @param {import('@deepseek-ai/cordis').Context} ctx - plugin context.
  * @param {{ roots: string[], baseDir: string, isolateSubagents: boolean }} options - normalized config.
  * @param {object | undefined} agent - the created agent.
- * @param {string} source - why the agent was created.
  * @returns {Promise<void>}
  */
-async function isolate(ctx, options, agent, source) {
-  // `resume` and `compact` replay an existing projection; only a fresh
-  // session (`startup`) or a cleared one (`clear`) gets its directory set.
-  if (source !== 'startup' && source !== 'clear') return
+async function isolate(ctx, options, agent) {
   const session = agent?.session
   const header = session?.header
   if (session === undefined || header === undefined) return
@@ -141,16 +147,15 @@ async function isolate(ctx, options, agent, source) {
   const workspace = options.roots.find((root) => samePath(header.cwd, root))
   if (workspace === undefined) return
   const current = ctx.workingDirectory.get(session)
-  // Do not override a working directory that something else already set: a
-  // fresh session reads back its header cwd, and an uninitialized projection
-  // reads back the service default.
-  if (source === 'startup' && !samePath(current, workspace) && !samePath(current, ctx.workingDirectory.defaultDirectory)) {
-    return
-  }
+  // Already isolated, or moved elsewhere by the user or another plugin: keep
+  // that choice. A resumed session replays the workspace root until this
+  // listener switches it, so an existing session is isolated on first entry.
+  if (!samePath(current, workspace)) return
   const directory = isAbsolute(options.baseDir)
     ? join(options.baseDir, String(session.id))
     : join(workspace, options.baseDir, String(session.id))
   await mkdir(directory, { recursive: true })
+  if (samePath(directory, current)) return
   await ctx.workingDirectory.set(agent, directory)
 }
 

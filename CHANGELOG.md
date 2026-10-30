@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.2.2 — 2026-10-30
+
+- **Resumed sessions are isolated too.** A session that is still at its workspace
+  root — an empty session created before the bundle was installed, or any session
+  opened for the first time afterwards — now gets its own
+  `<workspace>/_sessions/<session-id>` folder when it is resumed, so the header
+  folder button appears for existing sessions as well. Sessions that already
+  replayed their own working directory (an isolation folder, or a directory the
+  user moved to) are left untouched, so isolation still happens exactly once per
+  session.
+- Verified on DSH **0.2.1-rc.5**; Host/Client contracts unchanged, no new
+  dependencies.
+
 ## v1.2.1 — 2026-10-30
 
 - **Docs: animated files-panel tour** (`docs/session-folders.gif`) showing one

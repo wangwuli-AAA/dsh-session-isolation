@@ -2,13 +2,15 @@
 
 [中文说明](README.zh-CN.md)
 
-Give every **new session** in a chosen DeepSeek Harness workspace its own working
-directory — without turning each session into a separate workspace.
+Give every session in a chosen DeepSeek Harness workspace its own working
+directory — new sessions start there, and existing sessions get one the first
+time they are opened — without turning each session into a separate workspace.
 
 `@local/dsh-session-isolation` is a local DSH bundle with two halves:
 
-- **Host** — listens to `agent/created`; when a session starts (`startup`) or gets
-  a fresh conversation (`clear`) inside one of the configured workspaces, it
+- **Host** — listens to `agent/created`; when a session starts (`startup`), gets a
+  fresh conversation (`clear`), or is an existing session resumed while still at
+  the workspace root, it
   creates `<workspace>\<baseDir>\<session-id>` and switches the session's
   `working-directory` projection to that directory.
 - **Browser** — adds a folder button to the conversation header (next to DSH's
@@ -34,8 +36,10 @@ default-workspace\
   and only write there unless they explicitly go elsewhere.
 - **No workspace surgery** — no new workspace entries, no `SessionHeader` rewrite,
   no changes to DSH's profile or workspace registry.
-- **New sessions only** — `startup` and `clear` are isolated; `resume` and
-  `compact` keep whatever the projection already replays.
+- **Existing sessions too** — a session that is still at its workspace root gets
+  its own directory on first entry (a new session, a cleared session, or a
+  session resumed after installing the bundle). Sessions that already have their
+  own working directory — including an `_sessions` folder — are never moved.
 - **Subagents included by default** — every subagent session gets its own folder
   (can be turned off).
 - **Never blocks a session** — any isolation failure is logged as a warning and
@@ -117,10 +121,11 @@ bundle therefore treats isolation as best-effort — the whole routine is wrappe
 `try/catch`, failures only produce a `warn` log line, and the session keeps the
 workspace root.
 
-It only acts when `source` is `startup` or `clear`, and only for sessions whose
-`header.cwd` matches a configured workspace. It never overrides a directory that
-another mechanism already set (`startup` skips when the current directory is
-neither the workspace root nor the service default).
+It acts whenever a session's `header.cwd` matches a configured workspace **and**
+the session is still at that workspace root; the `source` only decides when DSH
+creates the agent (`startup`, `clear`, `resume`, `compact`). A session that
+already replayed its own working directory — an `_sessions` folder, or one the
+user moved to — is left alone, so isolation is applied exactly once per session.
 
 ### Header button
 
@@ -165,11 +170,13 @@ composed at boot.
 
 ## Verification
 
-1. A new session's log (`session.v4.jsonl.zstd`) contains a
+1. A session's log (`session.v4.jsonl.zstd`) contains a
    `working-directory/change` event pointing at `_sessions\<session-id>`.
 2. The system prompt shows `Current working directory: <workspace>\_sessions\<id>`.
 3. Sessions in other workspaces never get an `_sessions` directory.
-4. Resuming an old session adds no `working-directory/change` event.
+4. Resuming a session that already has its own directory adds no
+   `working-directory/change` event; resuming a session still at the workspace
+   root adds exactly one and gives it a folder.
 5. The header folder button appears and opens the session folder in the file
    manager.
 6. Clicking a file link/card inside an isolated session opens the document
@@ -191,8 +198,10 @@ Behaviour of the host and client contracts above was re-checked against
 service, `agent/created` signature, `webServer.register` +
 `connection.requestRejection`, slot registration (the bundle's header button is
 registered and active), file-address grammar and `/open-in-app` body validation
-are unchanged — no code changes were required. Runtime dependencies: none (Node
-built-ins only).
+are unchanged — no code changes were required. v1.2.2 (2026-10-30) additionally
+isolates **resumed** sessions that are still at the workspace root, so existing
+sessions get a folder the first time they are opened after installing the bundle;
+this was verified on 0.2.1-rc.5. Runtime dependencies: none (Node built-ins only).
 
 ## Notes
 
@@ -203,11 +212,11 @@ built-ins only).
 - Deleting a session may leave an empty `_sessions\<id>` folder behind; nothing
   cleans it up automatically.
 - A `_sessions` folder can be deleted at any time — the session falls back to the
-  workspace root.
+  workspace root, and the folder is recreated on its next entry.
 
 ## Uninstall
 
-Disable the `session-isolation` row in the plugin manager to stop isolating new
+Disable the `session-isolation` row in the plugin manager to stop isolating
 sessions, or remove the whole bundle. Existing sessions and their `_sessions`
 folders are unaffected and can be deleted by hand.
 

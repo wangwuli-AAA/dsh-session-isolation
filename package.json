@@ -1,8 +1,8 @@
 {
   "name": "@local/dsh-session-isolation",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
-  "description": "Host + browser bundle: give every new session in a configured workspace its own working directory, plus a header button that opens that directory and a client-side repair for file addresses that DSH builds with a stale workspace root.",
+  "description": "Host + browser bundle: give every session in a configured workspace its own working directory — new sessions at `startup`, existing ones the first time they are resumed at the workspace root — plus a header button that opens that directory and a client-side repair for file addresses that DSH builds with a stale workspace root.",
   "license": "MIT",
   "author": "wangwuli-AAA",
   "homepage": "https://github.com/wangwuli-AAA/dsh-session-isolation#readme",
