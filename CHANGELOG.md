@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.2.1 — 2026-10-30
+
+- **Docs: animated files-panel tour** (`docs/session-folders.gif`) showing one
+  folder per isolated session under `_sessions`.
+- Verified against DSH **0.2.1-rc.5**: `agent/created` signature, the
+  `workingDirectory` service (`get` / `ensure` / `set`), `webServer.register` +
+  `connection.requestRejection`, the `conversation.session.header.utilities`
+  slot (the bundle's button is registered and active), the
+  `dsh-resource://file/` address grammar and the `/open-in-app` routes are
+  unchanged, and the browser half still loads through `exports["./client"]`.
+  **No code changes were needed.**
+
 ## v1.2.0 — 2026-10-21
 
 - **Browser half: file-address repair.** DSH's browser code assumes the session

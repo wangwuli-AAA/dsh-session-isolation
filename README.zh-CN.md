@@ -52,9 +52,14 @@ bundle 新增的文件夹按钮（位于 DSH 内置「在应用中打开」分�
 
 ![会话目录](docs/session-folders.png)
 
+文件面板的动态演示（放大到 `_sessions`，每个隔离会话一个目录）：
+
+![文件面板动态演示](docs/session-folders.gif)
+
 ## 要求
 
-- DSH 桌面版 **0.2.1-rc.2 或更新**（已在 0.2.1-rc.2、0.2.1-rc.3 上验证）。
+- DSH 桌面版 **0.2.1-rc.2 或更新**（已在 0.2.1-rc.2、0.2.1-rc.3、
+  0.2.1-rc.5 上验证）。
 - profile 启用了 `@deepseek-ai/dsh-working-directory` 与浏览器模块系统——桌面版默认
   都开启。
 - 主要面向 Windows；Host 侧只用 `node:` 内置模块与 `path` 语义，其他平台只要配置的
@@ -143,8 +148,8 @@ DSH 浏览器端假设「会话工作目录 == 工作区根」。隔离会话里
 
 ## 兼容性
 
-已在 DSH **0.2.1-rc.2** 与 **0.2.1-rc.3**（Windows 11）上验证。只使用公开、稳定的
-契约，不 patch DSH 内部：
+已在 DSH **0.2.1-rc.2**、**0.2.1-rc.3** 与 **0.2.1-rc.5**（Windows 11）上验证。
+只使用公开、稳定的契约，不 patch DSH 内部：
 
 - Host：`agent/created`（串行、被 await 的监听器）、`workingDirectory` 服务、
   `webServer.register` + `connection.requestRejection`、`sessions.get`。
@@ -152,9 +157,11 @@ DSH 浏览器端假设「会话工作目录 == 工作区根」。隔离会话里
   `/plugins/<name>/client.js`）、`conversation.session.header.utilities` 槽、
   `slots` / `locale` / `sessions` 服务，以及 DSH 的 `/open-in-app` 路由。
 
-上述 host/client 契约已对照 0.2.1-rc.3 复核（working directory 服务、`agent/created`
-签名、槽注册、文件地址语法、`/open-in-app` 请求体校验）——无需改代码。运行时无第三方
-依赖，只用 `node:` 内置模块。
+上述 host/client 契约已对照 0.2.1-rc.3 复核，并于 2026-10-30 再次对照 0.2.1-rc.5
+复核（working directory 服务、`agent/created` 签名、`webServer.register` +
+`connection.requestRejection`、槽注册——bundle 的头部按钮已注册且处于 active、文件地址
+语法、`/open-in-app` 请求体校验均无变化）——无需改代码。运行时无第三方依赖，只用
+`node:` 内置模块。
 
 ## 说明
 

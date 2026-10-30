@@ -60,9 +60,15 @@ The files panel browsing the same workspace — every session folder lives under
 
 ![Session folders](docs/session-folders.png)
 
+Animated tour of the files panel, zooming into `_sessions` — one folder per
+isolated session:
+
+![Animated tour of the files panel](docs/session-folders.gif)
+
 ## Requirements
 
-- DSH Desktop **0.2.1-rc.2 or later** (tested on 0.2.1-rc.2 and 0.2.1-rc.3).
+- DSH Desktop **0.2.1-rc.2 or later** (tested on 0.2.1-rc.2, 0.2.1-rc.3 and
+  0.2.1-rc.5).
 - The profile enables `@deepseek-ai/dsh-working-directory` and the browser module
   system — both are on by default in the desktop build.
 - Windows was the primary target; the Host half uses only `node:` built-ins and
@@ -171,8 +177,8 @@ composed at boot.
 
 ## Compatibility
 
-Tested with DSH **0.2.1-rc.2** and **0.2.1-rc.3** on Windows 11. The bundle only
-uses public, stable contracts and patches no DSH internals:
+Tested with DSH **0.2.1-rc.2**, **0.2.1-rc.3** and **0.2.1-rc.5** on Windows
+11. The bundle only uses public, stable contracts and patches no DSH internals:
 
 - Host: `agent/created` (serial, awaited listener), the `workingDirectory`
   service, `webServer.register` + `connection.requestRejection`, `sessions.get`.
@@ -181,9 +187,12 @@ uses public, stable contracts and patches no DSH internals:
   the `slots` / `locale` / `sessions` services, and DSH's `/open-in-app` routes.
 
 Behaviour of the host and client contracts above was re-checked against
-0.2.1-rc.3 (working directory service, `agent/created` signature, slot
-registration, file-address grammar, `/open-in-app` body validation) — no code
-changes were required. Runtime dependencies: none (Node built-ins only).
+0.2.1-rc.3 and again against 0.2.1-rc.5 (2026-10-30) — working directory
+service, `agent/created` signature, `webServer.register` +
+`connection.requestRejection`, slot registration (the bundle's header button is
+registered and active), file-address grammar and `/open-in-app` body validation
+are unchanged — no code changes were required. Runtime dependencies: none (Node
+built-ins only).
 
 ## Notes
 
